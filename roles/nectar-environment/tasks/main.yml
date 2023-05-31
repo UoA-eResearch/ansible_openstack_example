@@ -1,0 +1,157 @@
+---
+- name: Create new keypair from current user's default SSH key
+  os_keypair:
+    cloud: "{{ cloud_name }}"
+    state: present
+    name: "{{ user_key.name }}"
+    public_key_file: "{{ '~' | expanduser }}/.ssh/{{ user_key.file }}.pub"
+
+- name: create network {{ private_net.name }}
+  os_network:
+    cloud: "{{ cloud_name }}"
+    state: present
+    name: "{{ private_net.name }}"
+    external: false
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+
+- name: create subnet {{ private_net.subnet_name }}
+  os_subnet:
+    cloud: "{{ cloud_name }}"
+    state: present
+    network_name: "{{ private_net.name }}"
+    name: "{{ private_net.subnet_name }}"
+    cidr: "{{ private_net.ip_range }}"
+    enable_dhcp: yes
+    allocation_pool_start: "{{ private_net.dhcp_start }}"
+    allocation_pool_end: "{{ private_net.dhcp_end }}"
+    dns_nameservers:
+      - "{{ dns.named_1 }}"
+      - "{{ dns.named_2 }}"
+    gateway_ip: "{{ private_net.gateway }}"
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+
+- name: create a router {{ router_name }}
+  os_router:
+    cloud: "{{ cloud_name }}"
+    state: present
+    name: "{{ router_name }}"
+    network: "{{ public_net }}"
+    interfaces:
+      -  "{{ private_net.subnet_name }}"
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+
+- name: create security groups
+  os_security_group:
+    cloud: "{{ cloud_name }}"
+    state: present
+    name: "{{ item.name }}"
+    description: "{{ item.comment }}"
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+  loop:
+    - { name: "{{ sg.ping }}", comment: 'Allow Pings to the host'}
+    - { name: "{{ sg.ssh }}", comment: 'Allow SSH from anywhere'}
+    - { name: "{{ sg.dev_ssh }}", comment: 'SSH from UoA and dev home nets'}
+    - { name: "{{ sg.pg }}", comment: 'allow postgres ports'}
+    - { name: "{{ sg.rabbit }}", comment: 'allow rabbitmq ports'}
+    - { name: "{{ sg.www }}", comment: 'allow http/https ports'}
+    - { name: "{{ sg.elastic }}", comment: 'Allow Elastic Search ports'}
+
+
+- name: create security group rule for ping
+  os_security_group_rule:
+    cloud: "{{ cloud_name }}"
+    security_group:  "{{ sg.ping }}"
+    protocol: icmp
+    remote_ip_prefix: 0.0.0.0/0
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+
+- name: create security group rules for public SSH
+  os_security_group_rule:
+    cloud: "{{ cloud_name }}"
+    security_group: "{{ sg.ssh }}"
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: 0.0.0.0/0
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+
+- name: create security group rules for dev SSH access
+  os_security_group_rule:
+    cloud: "{{ cloud_name }}"
+    security_group: "{{ sg.dev_ssh }}"
+    protocol: tcp
+    port_range_min: 22
+    port_range_max: 22
+    remote_ip_prefix: "{{ item }}"
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+  loop:
+    - "{{ private_net.ip_range }}"
+    - "{{ uoa_net }}"
+    - "{{ wikk_ip1 }}"
+    - "{{ wikk_ip2 }}"
+    - "{{ wikk_ip3 }}"
+
+- name: create security group rules for postgres
+  os_security_group_rule:
+    cloud: "{{ cloud_name }}"
+    security_group: "{{ sg.pg }}"
+    protocol: tcp
+    port_range_min: "{{ item }}"
+    port_range_max: "{{ item }}"
+    remote_ip_prefix: 0.0.0.0/0
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+  loop:
+    - 5432
+
+- name: create security group rules for rabbitmq
+  os_security_group_rule:
+    cloud: "{{ cloud_name }}"
+    security_group: "{{ sg.rabbit }}"
+    protocol: tcp
+    port_range_min: "{{ item }}"
+    port_range_max: "{{ item }}"
+    remote_ip_prefix: 0.0.0.0/0
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+  loop:
+    - 4369
+    - 5672
+    - 15672
+    - 25672
+
+- name: create security group rules for web
+  os_security_group_rule:
+    cloud: "{{ cloud_name }}"
+    security_group: "{{ sg.www }}"
+    protocol: tcp
+    port_range_min: "{{ item }}"
+    port_range_max: "{{ item }}"
+    remote_ip_prefix: 0.0.0.0/0
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+  loop:
+    - 80
+    - 443
+    
+- name: create security group rules for elastic search
+  os_security_group_rule:
+    cloud: "{{ cloud_name }}"
+    security_group: "{{ sg.elastic }}"
+    protocol: tcp
+    port_range_min: "{{ item[0] }}"
+    port_range_max: "{{ item[1] }}"
+    remote_ip_prefix: 0.0.0.0/0
+    timeout: "{{ connection_timeout }}"
+    wait: yes
+  loop:
+    - [9200,9200]
+    - [9300,9400]
+

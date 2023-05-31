@@ -1,0 +1,9 @@
+---
+  
+- name: install /etc/hosts on each node
+  template:
+    src: etc_hosts.j2
+    dest: /etc/hosts
+  vars:
+    nectar_servers: "{{ groups['dynamic'] }}"
+  become: yes

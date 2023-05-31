@@ -1,0 +1,13 @@
+Host {{private_net.gateway | regex_replace('^([0-9]+\.[0-9]+\.[0-9]+\.)[0-9]+$', '\\1*') }}
+  ProxyCommand ssh -W %h:%p bastion-m-{{env}}
+  IdentityFile ~/.ssh/{{user_key.file}}
+  StrictHostKeyChecking no
+
+Host bastion-m-{{env}} {{ bastion_node.openstack.accessIPv4 }}
+  Hostname {{ bastion_node.openstack.accessIPv4 }}
+  User ubuntu
+  IdentityFile ~/.ssh/{{ user_key.file }}
+  ControlMaster auto
+  ControlPath ~/.ssh/ansible-%r@%h:%p
+  ControlPersist 5m
+  StrictHostKeyChecking no

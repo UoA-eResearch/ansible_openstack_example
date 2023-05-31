@@ -1,0 +1,20 @@
+#- name: ensure ntpd present (already done in creation of VM)
+#  apt:
+#    name: ntp
+#    state: present
+#    update-cache: yes
+#  become: yes
+
+- name: copy the ntp.conf to /etc/ntp.conf
+  template:
+    src: "ntp.conf.j2"
+    dest: "/etc/ntp.conf"
+  become: yes
+  notify: restart_ntp
+
+- name: "enable and restart ntp"
+  service:
+    name: "ntp"
+    enabled: yes
+    state: restarted
+  become: yes

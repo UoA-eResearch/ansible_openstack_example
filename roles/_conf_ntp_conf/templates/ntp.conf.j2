@@ -1,0 +1,27 @@
+# {{ ansible_managed }}
+driftfile /var/lib/ntp/ntp.drift
+leapfile /usr/share/zoneinfo/leap-seconds.list
+#
+# Enable this if you want statistics to be logged.
+#statsdir /var/log/ntpstats/
+#
+keys /etc/ntp/keys
+#
+filegen loopstats file loopstats type day enable
+filegen peerstats file peerstats type day enable
+filegen clockstats file clockstats type day enable
+#
+restrict -4 default kod notrap nomodify nopeer noquery limited
+restrict -6 default kod notrap nomodify nopeer noquery limited
+restrict 127.0.0.1
+restrict ::1
+restrict source notrap nomodify noquery
+#
+statistics loopstats peerstats clockstats
+#
+{% for item in ntp_servers %}
+pool {{ item }} iburst
+{% endfor %}
+#
+disable monitor
+

@@ -1,0 +1,56 @@
+---
+cloud_name: uoa_nectardev
+zone: auckland
+connection_timeout: 600
+env: dev
+build:
+  package_receipt_dir: /home/ubuntu/lib/src_packages_receipts
+  build_dir: /home/ubuntu/src
+time_zone: Pacific/Auckland
+ntp_servers:
+  - ntp.auckland.ac.nz
+  - 0.nz.pool.ntp.org
+  - 1.nz.pool.ntp.org
+  - 2.nz.pool.ntp.org
+  - 3.nz.pool.ntp.org
+#
+# User Authentication.
+# Password is for the Ubuntu user login on the console
+user_key:
+  name: uoa_nectar_dev_key
+  file: uoa_nectar_dev_key_id_rsa
+  password: caad709a0f71d36da243d861cbf79241
+#
+# Security Groups for various services we need
+sg:
+  pg: uoa_nectar_dev_postgres_sg
+  rabbit: uoa_nectar_dev_rabbitmq_sg
+  ping: uoa_nectar_dev_ping_sg
+  ssh: uoa_nectar_dev_ssh_sg
+  dev_ssh: uoa_nectar_dev_private_ssh_sg
+  www: uoa_nectar_dev_www_sg
+  elastic: uoa_nectar_dev_elastic_sg
+#
+router_name: uoa_nectar_dev_router
+#
+public_net: auckland
+#
+private_net:
+  name: uoa_nectar_dev
+  subnet_name: uoa_nectar_dev_internal
+  ip_range: 192.168.3.0/24
+  dhcp_start: 192.168.3.100
+  dhcp_end: 192.168.3.200
+  gateway: 192.168.3.1
+#
+dns:
+  named_1: 130.216.1.1
+  named_2: 130.216.1.2
+#
+default_os_img: "NeCTAR Ubuntu 18.04 LTS (Bionic) amd64"
+#
+uoa_net: 130.216.0.0/16
+#
+bastion:
+  nservers: 1
+#

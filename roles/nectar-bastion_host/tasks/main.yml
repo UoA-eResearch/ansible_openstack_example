@@ -1,0 +1,93 @@
+---
+- name: create management host instance
+  os_server:
+    name: mytardis-m-{{env}}
+    state: present
+    cloud: "{{ cloud_name }}"
+    availability_zone: "{{ zone }}"
+    image: "{{ default_os_img }}"
+    key_name: "{{ user_key.name }}"
+    timeout: "{{ connection_timeout }}"
+    flavor: m3.small
+    network: "{{ private_net.name }}"
+    interface: internal
+    security_groups:
+      - "{{ sg.ping }}"
+      - "{{ sg.dev_ssh }}"
+    floating_ip_pools: "{{ public_net }}"
+    wait: yes
+    userdata: |
+      #cloud-config
+      chpasswd:
+        list: |
+          ubuntu:{{ user_key.password }}
+        expire: False
+      packages:
+        - aptitude
+        - ansible
+        - acl
+        - curl
+        - wget
+        - ntp
+        - ntpdate
+        - build-essential
+        - net-tools
+        - inetutils-traceroute
+        - traceroute          
+        - git
+        - gnupg
+      package_upgrade: true
+  register: management_node
+
+- name: add the management node into runtime inventory with it's external address
+  add_host: 
+    hostname: mytardis-m-{{env}}
+    ansible_host: "{{management_node.openstack.accessIPv4}}"
+    groups: 
+      - management 
+      - dynamic
+    ansible_user: "ubuntu"
+    
+- name: update management host entries in hosts.db
+  command: sqlite3 -batch {{db}} "replace into hosts (hostname, public_ip, private_ip) values (\"{{item.openstack.name}}\", \"{{item.openstack.accessIPv4}}\", \"{{item.openstack.private_v4}}\");"
+  with_items:
+    - "{{management_node}}"
+  loop_control:
+      label: "{{ item.openstack.name }}"
+      
+- name: generate local ssh config
+  template:
+    src: ssh_conf.j2
+    dest: "{{ playbook_dir | expanduser }}/ssh_conf"
+      
+- name: setup management host (send directly to this host (i.e Not local openstack call))
+  copy: 
+    src: "{{ '~' | expanduser }}/.ssh/{{ user_key.file }}"
+    dest: /home/ubuntu/.ssh/
+    mode: '0600'
+  delegate_to: mytardis-m-{{env}}
+
+- name: update local .ssh/config so we can ssh to this host with keys. Need a /etc/hosts entry too, so tunnelling through this host works.
+  blockinfile:
+    dest: "{{ '~' | expanduser }}/.ssh/config"
+    block: |
+      Host {{management_node.openstack.name}} {{management_node.openstack.accessIPv4}}
+              User ubuntu
+              IdentityFile ~/.ssh/{{ user_key.file }}
+              StrictHostKeyChecking no
+    marker: "# {mark} Ansible managed block {{management_node.openstack.name}}"
+    backup: no
+  
+- name: add management host to /etc/hosts. Needed to be able to tunnel ssh through this host.
+  lineinfile:
+    path: /etc/hosts
+    regexp: '^.* {{management_node.openstack.name}}$'
+    line: "{{management_node.openstack.accessIPv4}} {{management_node.openstack.name}}"
+    backup: no
+  become: yes
+
+- debug: 
+    msg: <
+      "public':'  {{management_node.openstack.accessIPv4}}"
+      "private':' {{management_node.openstack.private_v4}}"
+
