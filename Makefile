@@ -1,6 +1,6 @@
-dev: 
-	ansible-playbook mytardis-dev.yml
+dev:
+	ansible-playbook playbook-dev.yml
 test:
-	
+	ansible-playbook playbook-test.yml
 prod:
-	
+	ansible-playbook playbook-prod.yml

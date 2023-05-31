@@ -1,7 +1,7 @@
 ---
-- name: create management host instance
+- name: create bastion host instance
   os_server:
-    name: mytardis-m-{{env}}
+    name: bastion-{{env}}
     state: present
     cloud: "{{ cloud_name }}"
     availability_zone: "{{ zone }}"
@@ -33,61 +33,53 @@
         - build-essential
         - net-tools
         - inetutils-traceroute
-        - traceroute          
+        - traceroute
         - git
         - gnupg
       package_upgrade: true
-  register: management_node
+  register: bastion_node
 
-- name: add the management node into runtime inventory with it's external address
-  add_host: 
-    hostname: mytardis-m-{{env}}
-    ansible_host: "{{management_node.openstack.accessIPv4}}"
-    groups: 
-      - management 
+- name: add the bastion node into runtime inventory with it's external address
+  add_host:
+    hostname: uoa_nectar-m-{{env}}
+    ansible_host: "{{bastion_node.openstack.accessIPv4}}"
+    groups:
+      - bastion
       - dynamic
     ansible_user: "ubuntu"
-    
-- name: update management host entries in hosts.db
-  command: sqlite3 -batch {{db}} "replace into hosts (hostname, public_ip, private_ip) values (\"{{item.openstack.name}}\", \"{{item.openstack.accessIPv4}}\", \"{{item.openstack.private_v4}}\");"
-  with_items:
-    - "{{management_node}}"
-  loop_control:
-      label: "{{ item.openstack.name }}"
-      
+
 - name: generate local ssh config
   template:
     src: ssh_conf.j2
     dest: "{{ playbook_dir | expanduser }}/ssh_conf"
-      
-- name: setup management host (send directly to this host (i.e Not local openstack call))
-  copy: 
+
+- name: setup bastion host (send directly to this host (i.e Not local openstack call))
+  copy:
     src: "{{ '~' | expanduser }}/.ssh/{{ user_key.file }}"
     dest: /home/ubuntu/.ssh/
     mode: '0600'
-  delegate_to: mytardis-m-{{env}}
+  delegate_to: uoa_nectar-m-{{env}}
 
 - name: update local .ssh/config so we can ssh to this host with keys. Need a /etc/hosts entry too, so tunnelling through this host works.
   blockinfile:
     dest: "{{ '~' | expanduser }}/.ssh/config"
     block: |
-      Host {{management_node.openstack.name}} {{management_node.openstack.accessIPv4}}
+      Host {{bastion_node.openstack.name}} {{bastion_node.openstack.accessIPv4}}
               User ubuntu
               IdentityFile ~/.ssh/{{ user_key.file }}
               StrictHostKeyChecking no
-    marker: "# {mark} Ansible managed block {{management_node.openstack.name}}"
+    marker: "# {mark} Ansible managed block {{bastion_node.openstack.name}}"
     backup: no
-  
-- name: add management host to /etc/hosts. Needed to be able to tunnel ssh through this host.
+
+- name: add bastion host to /etc/hosts. Needed to be able to tunnel ssh through this host.
   lineinfile:
     path: /etc/hosts
-    regexp: '^.* {{management_node.openstack.name}}$'
-    line: "{{management_node.openstack.accessIPv4}} {{management_node.openstack.name}}"
+    regexp: '^.* {{bastion_node.openstack.name}}$'
+    line: "{{bastion_node.openstack.accessIPv4}} {{bastion_node.openstack.name}}"
     backup: no
   become: yes
 
-- debug: 
+- debug:
     msg: <
-      "public':'  {{management_node.openstack.accessIPv4}}"
-      "private':' {{management_node.openstack.private_v4}}"
-
+      "public':'  {{bastion_node.openstack.accessIPv4}}"
+      "private':' {{bastion_node.openstack.private_v4}}"

@@ -1,6 +1,6 @@
 #pip install shade
 #need entry in ~/.config/openstack/clouds.yaml
-# mytardisdev:
+# uoa_nectardev:
 #   region_name: Melbourne
 #   zone: Auckland
 #   auth:
@@ -8,43 +8,16 @@
 #     user_domain_name: Default
 #     password: xxxxxxxxxxxxxxxxxxxx
 #     project_id: cc2878baccf44324b38b96a3abced091
-#     project_name: mytardisdev
+#     project_name: uoa_nectardev
 #     project_domain_name: nz
 #     auth_url: https://keystone.rc.nectar.org.au:35357/v3
-#  
-- name: Create myTardis test Environment
+#
+- name: Create uoa_nectar test Environment
   hosts: localhost
   gather_facts: false
   vars_files:
     - vars/test_env.yml
-    
+
   roles:
-    - gen_sqlite_db
     - nectar-environment
-    - nectar-server-management
-    - nectar-server-postgres
-    - nectar-server-rabbitmq
-    - nectar-server-mytardis
-    #- nectar-server-elastic
-    #- nectar-server-sftp
-    #- nectar-server-haproxy
-    - gen_etc_hosts
-
-- name: Set up basic host configs
-  hosts: all
-  vars_files:
-    - vars/dev_env.yml
-  
-  roles:
-    - ntp_conf
-    - timezone
-    - setup_for_local_builds
-
-- name: Set up mytardis web servers
-  hosts: web
-  vars_files:
-    - vars/dev_env.yml
-
-  roles:
-    - mytardis_nodejs
-    - mytardis_yarn
+    - nectar-server-bastion
